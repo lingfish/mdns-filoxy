@@ -5,7 +5,7 @@
 
 -----
 
-![](logo-small.png)
+![](https://github.com/lingfish/mdns-filoxy/raw/master/logo-small.png)
 
 This is mdns-filoxy, the mDNS filter proxy!
 
@@ -47,6 +47,7 @@ Furthermore, in the case where you have some other server on the same networks, 
 `systemd` can have
 a [rather major meltdown whilst it tries to think for you](https://github.com/home-assistant/supervisor/issues/5435) and
 choose unique mDNS names. A good example of this is Home Assistant's HAOS.
+`systemd` [behaves badly](https://github.com/systemd/systemd/issues/35780) with mdns repeaters too.
 
 ### Draw me a picture
 

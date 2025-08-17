@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "mdns-filoxy"
 dynamic = ["version"]
-description = ''
+description = "This is mdns-filoxy, the mDNS filter proxy!"
 readme = "README.md"
 requires-python = ">=3.8"
 license = "MIT"
@@ -14,7 +14,7 @@ authors = [
   { name = "Jason Lingohr", email = "jason@lucid.net.au" },
 ]
 classifiers = [
-  "Development Status :: 4 - Beta",
+  "Development Status :: 5 - Stable",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3.8",
   "Programming Language :: Python :: 3.9",
@@ -27,7 +27,7 @@ classifiers = [
 dependencies = ["zeroconf", "click", "loguru"]
 
 [project.urls]
-Documentation = "https://github.com/lingfish/mdns-filoxy/README.md"
+Documentation = "https://github.com/lingfish/mdns-filoxy"
 Issues = "https://github.com/lingfish/mdns-filoxy/issues"
 Source = "https://github.com/lingfish/mdns-filoxy"
 
