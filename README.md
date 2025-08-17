@@ -5,9 +5,12 @@
 
 -----
 
+![](logo-small.png)
+
 This is mdns-filoxy, the mDNS filter proxy!
 
 ## Table of contents
+
 <!-- TOC -->
 * [mdns-filoxy](#mdns-filoxy)
   * [Table of contents](#table-of-contents)
@@ -15,8 +18,10 @@ This is mdns-filoxy, the mDNS filter proxy!
     * [What is it for?](#what-is-it-for)
     * [But isn't that what avahi-daemon et al are for?!](#but-isnt-that-what-avahi-daemon-et-al-are-for)
     * [Draw me a picture](#draw-me-a-picture)
+    * [What's with the name?!](#whats-with-the-name)
   * [Installation](#installation)
   * [License](#license)
+<!-- TOC -->
 
 ## Introduction
 
