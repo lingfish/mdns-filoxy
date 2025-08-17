@@ -1,0 +1,76 @@
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mdns-filoxy"
+dynamic = ["version"]
+description = ''
+readme = "README.md"
+requires-python = ">=3.8"
+license = "MIT"
+keywords = []
+authors = [
+  { name = "Jason Lingohr", email = "jason@lucid.net.au" },
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+]
+dependencies = ["zeroconf", "click", "loguru"]
+
+[project.urls]
+Documentation = "https://github.com/lingfish/mdns-filoxy/README.md"
+Issues = "https://github.com/lingfish/mdns-filoxy/issues"
+Source = "https://github.com/lingfish/mdns-filoxy"
+
+[project.scripts]
+mdns-filoxy = "mdns_filoxy.main:entry_point"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/mdns_filoxy/_version.py"
+
+[tool.hatch.envs.types]
+extra-dependencies = [
+  "mypy>=1.0.0",
+]
+[tool.hatch.envs.types.scripts]
+check = "mypy --install-types --non-interactive {args:src/mdns_filoxy tests}"
+
+[tool.coverage.run]
+source_pkgs = ["mdns_filoxy", "tests"]
+branch = true
+parallel = true
+omit = [
+  "src/mdns_filoxy/__about__.py",
+]
+
+[tool.coverage.paths]
+mdns_filoxy = ["src/mdns_filoxy", "*/mdns-filoxy/src/mdns_filoxy"]
+tests = ["tests", "*/mdns-filoxy/tests"]
+
+[tool.coverage.report]
+exclude_lines = [
+  "no cov",
+  "if __name__ == .__main__.:",
+  "if TYPE_CHECKING:",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mdns_filoxy"]
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.format]
+quote-style = "single"
