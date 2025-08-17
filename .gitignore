@@ -1,0 +1,3 @@
+/dist/
+.idea/
+/src/mdns_filoxy/_version.py

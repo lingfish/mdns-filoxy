@@ -6,6 +6,7 @@ from zeroconf import ServiceBrowser, ServiceListener, Zeroconf
 from loguru import logger
 
 from mdns_filoxy.utils import find_address_by_name, coro
+from mdns_filoxy._version import __version__
 
 logger.remove()
 logger.add(sys.stderr, backtrace=True, diagnose=True)
@@ -31,7 +32,7 @@ class MyListener(ServiceListener):
 
 @logger.catch
 @click.command()
-@click.version_option()
+@click.version_option(version=__version__)
 @click.option('--source-interface', '-s', required=True, help='The interface to proxy from')
 @click.option('--dest-interface', '-d', required=True, help='The interface to proxy to, and answer requests on')
 @click.option(
