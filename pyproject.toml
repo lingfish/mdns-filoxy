@@ -14,7 +14,7 @@ authors = [
   { name = "Jason Lingohr", email = "jason@lucid.net.au" },
 ]
 classifiers = [
-  "Development Status :: 5 - Stable",
+  "Development Status :: 5 - Production/Stable",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3.8",
   "Programming Language :: Python :: 3.9",
