@@ -38,11 +38,17 @@ class MyListener(ServiceListener):
 @click.option(
     '--mdns-services', '-m', multiple=True, default=['_sonos._tcp.local.'], help='The mDNS services to listen for'
 )
+@click.option('--spotify-connect/--no-spotify-connect', '--spotify/--no-spotify', default=True)
 @coro
-async def main(source_interface: str, dest_interface: str, mdns_services: list[str]) -> None:
+async def main(source_interface: str, dest_interface: str, mdns_services: list[str], spotify_connect: bool) -> None:
     """This is mdns-filoxy, the mDNS filter proxy!"""
+
+    if spotify_connect:
+        mdns_services.append('_spotify-connect._tcp.local.')
+
     zeroconf_source_address = find_address_by_name(source_interface)
     zeroconf_dest_address = find_address_by_name(dest_interface)
+
     logger.info(f'Listening on {source_interface} ({zeroconf_source_address}) for {mdns_services}')
     zeroconf_source = Zeroconf(interfaces=zeroconf_source_address)
     logger.info(f'Proxying {source_interface} to {dest_interface} ({zeroconf_dest_address})')
