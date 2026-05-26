@@ -11,7 +11,7 @@ requires-python = ">=3.8"
 license = "MIT"
 keywords = []
 authors = [
-  { name = "Jason Lingohr", email = "jason@lucid.net.au" },
+  { name = "Jason Lingohr" },
 ]
 classifiers = [
   "Development Status :: 5 - Production/Stable",

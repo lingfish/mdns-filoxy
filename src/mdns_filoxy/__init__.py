@@ -1,3 +1,3 @@
-# SPDX-FileCopyrightText: 2025-present lingfish <jason@lucid.net.au>
+# SPDX-FileCopyrightText: 2025-present lingfish
 #
 # SPDX-License-Identifier: MIT
