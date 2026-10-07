@@ -22,6 +22,7 @@ This is mdns-filoxy, the mDNS filter proxy!
     * [Draw me a picture](#draw-me-a-picture)
     * [What's with the name?!](#whats-with-the-name)
   * [Installation](#installation)
+    * [Running as a systemd service](#running-as-a-systemd-service)
   * [License](#license)
 <!-- TOC -->
 
@@ -96,9 +97,31 @@ username@host:~$ pipx install mdns-filoxy
 ```
 
 > [!WARNING]
-> Please [don't use pip system-wide](https://docs.python.org/3.11/installing/index.html#installing-into-the-system-python-on-linux).
+> Please [don't use pip system-wide](https://docs.python.org/3/installing/index.html#installing-into-the-system-python-on-linux).
 
 You can of course also install it using classic virtualenvs.
+
+### Running as a systemd service
+
+`mdns-filoxy` runs continuously, so systemd is the tidiest way to keep it running.
+The repository ships a template unit (`mdns-filoxy@.service`). The instance name is
+the user to run as, and the pipx-installed binary is resolved from that user's home
+directory (assuming homes live under `/home`), so no username is hardcoded.
+
+Edit the `ExecStart=` line to match your interfaces and services, then:
+
+```shell
+username@host:~$ sudo install -m 644 mdns-filoxy@.service \
+    /etc/systemd/system/mdns-filoxy@.service
+username@host:~$ sudo systemctl daemon-reload
+username@host:~$ sudo systemctl enable --now mdns-filoxy@$(whoami)
+```
+
+Follow the logs with:
+
+```shell
+username@host:~$ journalctl -u mdns-filoxy@$(whoami) -f
+```
 
 ## License
 
