@@ -49,7 +49,7 @@ async def main(source_interface: str, dest_interface: str, mdns_services: tuple[
     """This is mdns-filoxy, the mDNS filter proxy!"""
 
     if spotify_connect:
-        mdns_services+=('_spotify-connect._tcp.local.',)
+        mdns_services += ('_spotify-connect._tcp.local.',)
 
     zeroconf_source_address = find_address_by_name(source_interface)
     zeroconf_dest_address = find_address_by_name(dest_interface)
@@ -59,9 +59,10 @@ async def main(source_interface: str, dest_interface: str, mdns_services: tuple[
     logger.info(f'Proxying {source_interface} to {dest_interface} ({zeroconf_dest_address})')
     zeroconf_dest = Zeroconf(interfaces=zeroconf_dest_address)
 
+    browsers = []
     for service in mdns_services:
         listener = MyListener(dest_zc=zeroconf_dest)
-        browser = ServiceBrowser(zeroconf_source, service, listener)
+        browsers.append(ServiceBrowser(zeroconf_source, service, listener))
 
     try:
         while True:

@@ -23,6 +23,7 @@ def find_address_by_name(name: str) -> list[str]:
 
 def coro(f):
     """Make python click work with asyncio"""
+
     @wraps(f)
     def wrapper(*args, **kwargs):
         return asyncio.run(f(*args, **kwargs))
