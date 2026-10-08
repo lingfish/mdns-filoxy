@@ -1,3 +1,31 @@
-/dist/
+# Byte-compiled / caches
+__pycache__/
+*.py[cod]
+
+# Virtual environments
+.venv/
+venv/
+
+# IDE
 .idea/
+
+# Testing
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Type / lint caches
+.mypy_cache/
+.ruff_cache/
+
+# hatch
+.hatch/
+
+# hatch-vcs
 /src/mdns_filoxy/_version.py
+
+# Distribution / packaging
+/dist/
+build/
+*.egg-info/

@@ -8,7 +8,7 @@ Type=simple
 User=%i
 PrivateTmp=yes
 NoNewPrivileges=yes
-ExecStart=/home/%i/.local/bin/mdns-filoxy -s iot0 -d eth0 -m _googlecast._tcp.local. --spotify-connect
+ExecStart=/home/%i/.local/bin/mdns-filoxy -s iot0 -d eth0 --spotify-connect
 Restart=on-failure
 RestartSec=5
 

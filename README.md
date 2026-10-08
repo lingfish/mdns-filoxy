@@ -104,9 +104,11 @@ You can of course also install it using classic virtualenvs.
 ### Running as a systemd service
 
 `mdns-filoxy` runs continuously, so systemd is the tidiest way to keep it running.
-The repository ships a template unit (`mdns-filoxy@.service`). The instance name is
-the user to run as, and the pipx-installed binary is resolved from that user's home
-directory (assuming homes live under `/home`), so no username is hardcoded.
+The repository ships a template unit,
+[`mdns-filoxy@.service`](https://raw.githubusercontent.com/lingfish/mdns-filoxy/master/mdns-filoxy@.service)
+(the link downloads the raw file). The instance name is the user to run as, and the
+pipx-installed binary is resolved from that user's home directory (assuming homes live
+under `/home`), so no username is hardcoded.
 
 Edit the `ExecStart=` line to match your interfaces and services, then:
 

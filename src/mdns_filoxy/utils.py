@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import asyncio
 from functools import wraps
 
@@ -5,7 +7,7 @@ import ifaddr
 
 
 def get_all_addresses_ipv4(adapters: list[ifaddr.Adapter]) -> list[str]:
-    return list({addr.ip for iface in adapters for addr in iface.ips if addr.is_IPv4})
+    return list({addr.ip for iface in adapters for addr in iface.ips if addr.is_IPv4 and isinstance(addr.ip, str)})
 
 
 def get_all_addresses_ipv6(adapters: list[ifaddr.Adapter]) -> list[str]:

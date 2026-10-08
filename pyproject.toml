@@ -40,6 +40,15 @@ source = "vcs"
 [tool.hatch.build.hooks.vcs]
 version-file = "src/mdns_filoxy/_version.py"
 
+[tool.hatch.envs.lint]
+dependencies = [
+  "ruff>=0.1.0",
+]
+[tool.hatch.envs.lint.scripts]
+check = "ruff check {args:src tests}"
+format = "ruff format {args:src tests}"
+format-check = "ruff format --check {args:src tests}"
+
 [tool.hatch.envs.types]
 extra-dependencies = [
   "mypy>=1.0.0",
@@ -47,17 +56,25 @@ extra-dependencies = [
 [tool.hatch.envs.types.scripts]
 check = "mypy --install-types --non-interactive {args:src/mdns_filoxy tests}"
 
+# `hatch test` uses Hatch's built-in `hatch-test` environment, which already ships
+# pytest, coverage and friends. Only the pytest defaults are declared here.
+[tool.hatch.envs.hatch-test]
+default-args = ["tests"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+
 [tool.coverage.run]
-source_pkgs = ["mdns_filoxy", "tests"]
+source_pkgs = ["mdns_filoxy"]
 branch = true
 parallel = true
 omit = [
-  "src/mdns_filoxy/__about__.py",
+  "src/mdns_filoxy/_version.py",
 ]
 
 [tool.coverage.paths]
 mdns_filoxy = ["src/mdns_filoxy", "*/mdns-filoxy/src/mdns_filoxy"]
-tests = ["tests", "*/mdns-filoxy/tests"]
 
 [tool.coverage.report]
 exclude_lines = [
@@ -71,6 +88,9 @@ packages = ["src/mdns_filoxy"]
 
 [tool.ruff]
 line-length = 120
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "FA", "UP", "B", "SIM"]
 
 [tool.ruff.format]
 quote-style = "single"
