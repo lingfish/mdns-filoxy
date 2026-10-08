@@ -1,62 +1,31 @@
 from __future__ import annotations
 
-import socket
+from concurrent.futures import ThreadPoolExecutor
 from typing import cast
 
-from zeroconf import ServiceInfo, ServiceNameAlreadyRegistered, Zeroconf
+import pytest
+from zeroconf import ServiceInfo, Zeroconf
 
 from mdns_filoxy.main import MyListener, ProxyRegistry
-
-TYPE = '_sonos._tcp.local.'
-NAME = 'RINCON_1234@Office._sonos._tcp.local.'
-
-
-def make_info(name: str = NAME, port: int = 1400) -> ServiceInfo:
-    return ServiceInfo(
-        TYPE,
-        name,
-        port=port,
-        addresses=[socket.inet_aton('192.0.2.1')],
-    )
+from tests.helpers import (
+    NAME,
+    TYPE,
+    FakeDestZeroconf,
+    FakeSourceZeroconf,
+    make_info,
+    make_listener,
+    make_source,
+)
 
 
-class FakeDestZeroconf:
-    """Stand-in for the destination ``Zeroconf``, including its duplicate-name guard."""
-
-    def __init__(self) -> None:
-        self.registered: dict[str, ServiceInfo] = {}
-        self.register_calls: list[ServiceInfo] = []
-        self.unregister_calls: list[ServiceInfo] = []
-
+class BoomRegisterDest(FakeDestZeroconf):
     def register_service(self, info: ServiceInfo, cooperating_responders: bool = False) -> None:
-        self.register_calls.append(info)
-        if info.name in self.registered:
-            raise ServiceNameAlreadyRegistered
-        self.registered[info.name] = info
+        raise RuntimeError('boom')
 
+
+class BoomUnregisterDest(FakeDestZeroconf):
     def unregister_service(self, info: ServiceInfo) -> None:
-        self.unregister_calls.append(info)
-        self.registered.pop(info.name, None)
-
-
-class FakeSourceZeroconf:
-    """Stand-in for the source ``Zeroconf``; returns whatever info it was given."""
-
-    def __init__(self, info: ServiceInfo | None) -> None:
-        self.info = info
-        self.requested: list[tuple[str, str]] = []
-
-    def get_service_info(self, type_: str, name: str) -> ServiceInfo | None:
-        self.requested.append((type_, name))
-        return self.info
-
-
-def make_listener(dest: FakeDestZeroconf) -> MyListener:
-    return MyListener(ProxyRegistry(cast(Zeroconf, dest)))
-
-
-def make_source(info: ServiceInfo | None) -> Zeroconf:
-    return cast(Zeroconf, FakeSourceZeroconf(info))
+        raise RuntimeError('boom')
 
 
 def test_add_service_registers_on_destination() -> None:
@@ -130,12 +99,117 @@ def test_missing_info_is_ignored() -> None:
 
 
 def test_registration_errors_do_not_escape_listener() -> None:
-    class BoomDestZeroconf(FakeDestZeroconf):
-        def register_service(self, info: ServiceInfo, cooperating_responders: bool = False) -> None:
-            raise RuntimeError('boom')
-
-    dest = BoomDestZeroconf()
+    dest = BoomRegisterDest()
     listener = MyListener(ProxyRegistry(cast(Zeroconf, dest)))
 
     # A raising destination must not propagate; it would kill the browser thread.
     listener.add_service(make_source(make_info()), TYPE, NAME)
+
+
+def test_update_errors_do_not_escape_listener() -> None:
+    dest = BoomRegisterDest()
+    listener = MyListener(ProxyRegistry(cast(Zeroconf, dest)))
+
+    # ``update_service`` runs on a browser thread; an escaping exception kills it.
+    listener.update_service(make_source(make_info()), TYPE, NAME)
+
+
+def test_remove_errors_do_not_escape_listener() -> None:
+    dest = BoomUnregisterDest()
+    listener = MyListener(ProxyRegistry(cast(Zeroconf, dest)))
+    listener.add_service(make_source(make_info()), TYPE, NAME)
+
+    listener.remove_service(make_source(None), TYPE, NAME)
+
+
+def test_register_uses_cooperating_responders() -> None:
+    dest = FakeDestZeroconf()
+    listener = make_listener(dest)
+
+    listener.add_service(make_source(make_info()), TYPE, NAME)
+
+    assert dest.register_kwargs == [{'cooperating_responders': True}]
+
+
+def test_re_register_unregisters_before_registering() -> None:
+    dest = FakeDestZeroconf()
+    registry = ProxyRegistry(cast(Zeroconf, dest))
+    first = make_info(port=1400)
+    second = make_info(port=1401)
+
+    registry.add(NAME, first)
+    dest.events.clear()
+    registry.add(NAME, second)
+
+    assert dest.events == [('unregister', first), ('register', second)]
+    assert dest.registered == {NAME: second}
+
+
+def test_registry_remove_is_symmetric() -> None:
+    dest = FakeDestZeroconf()
+    registry = ProxyRegistry(cast(Zeroconf, dest))
+    info = make_info()
+
+    registry.add(NAME, info)
+    registry.remove(NAME)
+
+    assert dest.events == [('register', info), ('unregister', info)]
+    assert dest.registered == {}
+    assert registry._registered == {}
+
+
+def test_failed_register_leaves_no_tracking() -> None:
+    dest = BoomRegisterDest()
+    registry = ProxyRegistry(cast(Zeroconf, dest))
+
+    with pytest.raises(RuntimeError):
+        registry.add(NAME, make_info())
+
+    assert registry._registered == {}
+
+
+def test_concurrent_registry_never_raises_already_registered() -> None:
+    dest = FakeDestZeroconf()
+    registry = ProxyRegistry(cast(Zeroconf, dest))
+    infos = [make_info(port=1400 + index) for index in range(4)]
+
+    def churn(worker: int) -> None:
+        for step in range(200):
+            registry.add(NAME, infos[(worker + step) % len(infos)])
+            registry.remove(NAME)
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        # ``map`` re-raises the first exception a worker hits; the shared lock must
+        # keep the destination's duplicate-name guard from ever firing.
+        list(pool.map(churn, range(8)))
+
+    assert dest.registered == {}
+    assert len(dest.register_calls) == len(dest.unregister_calls)
+
+
+def test_concurrent_shared_registry_keeps_single_entry_per_name() -> None:
+    """Two listeners sharing one registry (as the CLI wires them) stay consistent."""
+    dest = FakeDestZeroconf()
+    registry = ProxyRegistry(cast(Zeroconf, dest))
+    listener_a = MyListener(registry)
+    listener_b = MyListener(registry)
+
+    def add_via(listener: MyListener, port: int) -> None:
+        for _ in range(100):
+            listener.add_service(make_source(make_info(port=port)), TYPE, NAME)
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        list(pool.map(lambda args: add_via(*args), [(listener_a, 1400), (listener_b, 1401)]))
+
+    assert len(dest.registered) == 1
+    assert NAME in dest.registered
+
+
+def test_source_zeroconf_requested_with_browse_type() -> None:
+    dest = FakeDestZeroconf()
+    listener = make_listener(dest)
+    source = FakeSourceZeroconf(make_info())
+
+    listener.add_service(cast(Zeroconf, source), TYPE, NAME)
+
+    assert source.requested == [(TYPE, NAME)]

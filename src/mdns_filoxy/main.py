@@ -87,7 +87,7 @@ class MyListener(ServiceListener):
         logger.info('Announcement sent')
 
 
-@logger.catch
+@logger.catch(reraise=True)
 @click.command()
 @click.version_option(version=__version__)
 @click.option('--source-interface', '-s', required=True, help='The interface to proxy from')
@@ -135,7 +135,10 @@ async def main(
 
 
 def entry_point() -> None:
-    asyncio.run(main())
+    # ``main`` is already the ``@coro``-wrapped click command: it runs its own
+    # ``asyncio.run`` internally, so calling it directly is all that's needed.
+    # Wrapping it in another ``asyncio.run`` would try to await its ``None`` return.
+    main()
 
 
 if __name__ == '__main__':
