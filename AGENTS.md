@@ -24,6 +24,10 @@ finishing.
 - The destination `Zeroconf` raises `ServiceNameAlreadyRegistered` if a name is registered twice. Sonos re-announces
   by firing `remove` then `add`, so you must `unregister_service()` before re-registering. `ProxyRegistry` enforces
   this — keep add/remove symmetric and idempotent.
+- On Linux the source `Zeroconf` hears the destination's own announcements and goodbyes (loopback, issue #2).
+  `ProxyRegistry` breaks that echo loop: `add()` is a no-op for equivalent info, and `remove()` ignores removals
+  inside an echo window that starts after the blocking `register_service`/`unregister_service` returns. Keep both
+  guards.
 - `get_service_info()` can return `None` (timeout); guard it before registering.
 - A single `ProxyRegistry` is shared by all listeners; its lock is intentional (callbacks run on multiple threads).
 

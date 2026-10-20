@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import io
 from concurrent.futures import ThreadPoolExecutor
 from typing import cast
 
 import pytest
+from loguru import logger
 from zeroconf import ServiceInfo, Zeroconf
 
 from mdns_filoxy.main import MyListener, ProxyRegistry
@@ -168,9 +170,126 @@ def test_failed_register_leaves_no_tracking() -> None:
     assert registry._registered == {}
 
 
-def test_concurrent_registry_never_raises_already_registered() -> None:
+def test_add_noops_on_identical_info() -> None:
     dest = FakeDestZeroconf()
     registry = ProxyRegistry(cast(Zeroconf, dest))
+    info = make_info()
+
+    assert registry.add(NAME, info) is True
+    # An equivalent ``ServiceInfo`` (same name/port/addresses/properties, different TTLs)
+    # must not trigger a re-registration.
+    assert registry.add(NAME, make_info()) is False
+
+    assert dest.register_calls == [info]
+    assert dest.unregister_calls == []
+    assert dest.registered == {NAME: info}
+
+
+def test_add_reregisters_on_changed_info() -> None:
+    dest = FakeDestZeroconf()
+    registry = ProxyRegistry(cast(Zeroconf, dest))
+    first = make_info(port=1400)
+    second = make_info(port=1401)
+
+    assert registry.add(NAME, first) is True
+    assert registry.add(NAME, second) is True
+
+    assert dest.registered == {NAME: second}
+    assert len(dest.register_calls) == 2
+    assert dest.unregister_calls == [first]
+
+
+def test_remove_ignores_own_goodbye_echo_within_ttl() -> None:
+    dest = FakeDestZeroconf()
+    now = [0.0]
+    registry = ProxyRegistry(cast(Zeroconf, dest), echo_ttl=1.0, clock=lambda: now[0])
+    info_a = make_info(port=1400)
+    info_b = make_info(port=1401)
+
+    assert registry.add(NAME, info_a) is True
+    # Re-registering sends a goodbye for ``info_a``; that goodbye is still echoing back.
+    assert registry.add(NAME, info_b) is True
+
+    now[0] = 0.5  # still within the echo window
+    assert registry.remove(NAME) is False
+
+    assert dest.registered == {NAME: info_b}
+    assert dest.unregister_calls == [info_a]
+
+
+def test_echo_window_starts_after_blocking_register_returns() -> None:
+    now = [0.0]
+
+    class SlowRegisterDest(FakeDestZeroconf):
+        def register_service(self, info: ServiceInfo, cooperating_responders: bool = False) -> None:
+            super().register_service(info, cooperating_responders)
+            now[0] += 0.9  # zeroconf blocks until the announcement train has gone out
+
+    dest = SlowRegisterDest()
+    registry = ProxyRegistry(cast(Zeroconf, dest), echo_ttl=1.0, clock=lambda: now[0])
+    info_a = make_info(port=1400)
+    info_b = make_info(port=1401)
+
+    registry.add(NAME, info_a)
+    registry.add(NAME, info_b)  # finishes at t=1.8; the echo window must run until t=2.8
+
+    now[0] = 2.5  # past "goodbye sent + ttl" but inside "register finished + ttl"
+    assert registry.remove(NAME) is False
+    assert dest.registered == {NAME: info_b}
+
+
+def test_remove_works_after_echo_window_closes() -> None:
+    dest = FakeDestZeroconf()
+    now = [0.0]
+    registry = ProxyRegistry(cast(Zeroconf, dest), echo_ttl=1.0, clock=lambda: now[0])
+    info_a = make_info(port=1400)
+    info_b = make_info(port=1401)
+
+    registry.add(NAME, info_a)
+    registry.add(NAME, info_b)  # sends a goodbye for info_a, deadline = 1.0
+
+    now[0] = 1.5  # past the echo window; the pending goodbye must be expired and dropped
+    assert registry.remove(NAME) is True
+
+    assert dest.registered == {}
+    assert dest.unregister_calls == [info_a, info_b]
+
+
+def test_remove_unknown_name_returns_false() -> None:
+    dest = FakeDestZeroconf()
+    registry = ProxyRegistry(cast(Zeroconf, dest))
+
+    assert registry.remove(NAME) is False
+    assert dest.unregister_calls == []
+    assert dest.register_calls == []
+
+
+def test_listener_logs_noop_at_debug_and_change_at_info() -> None:
+    dest = FakeDestZeroconf()
+    listener = make_listener(dest)
+    stream = io.StringIO()
+    sink_id = logger.add(stream, level='DEBUG', format='{level.name}: {message}')
+
+    try:
+        listener.add_service(make_source(make_info()), TYPE, NAME)  # genuine change -> INFO
+        listener.add_service(make_source(make_info()), TYPE, NAME)  # identical -> DEBUG
+        listener.update_service(make_source(make_info()), TYPE, NAME)  # identical -> DEBUG
+    finally:
+        logger.remove(sink_id)
+
+    output = stream.getvalue()
+    assert f'INFO: Service {NAME} added' in output
+    assert f'DEBUG: Service {NAME} already registered, skipping re-registration' in output
+    assert f'DEBUG: Service {NAME} unchanged, skipping re-registration' in output
+    assert f'INFO: Service {NAME} already registered' not in output
+    assert f'INFO: Service {NAME} unchanged' not in output
+
+
+def test_concurrent_registry_never_raises_already_registered() -> None:
+    dest = FakeDestZeroconf()
+    # ``echo_ttl=0.0`` disables goodbye-echo suppression, so the churn below keeps the
+    # original symmetric add/remove semantics this test is guarding (no suppressed removes).
+    registry = ProxyRegistry(cast(Zeroconf, dest), echo_ttl=0.0)
     infos = [make_info(port=1400 + index) for index in range(4)]
 
     def churn(worker: int) -> None:
