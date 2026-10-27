@@ -20,6 +20,7 @@ This is mdns-filoxy, the mDNS filter proxy!
     * [What is it for?](#what-is-it-for)
     * [But isn't that what avahi-daemon et al are for?!](#but-isnt-that-what-avahi-daemon-et-al-are-for)
     * [Draw me a picture](#draw-me-a-picture)
+    * [SSDP too](#ssdp-too)
     * [What's with the name?!](#whats-with-the-name)
   * [Installation](#installation)
     * [Running as a systemd service](#running-as-a-systemd-service)
@@ -81,6 +82,20 @@ flowchart LR
 
 Notice that the queries and responses aren't bi-directional, and this is intentional. The software is meant to give
 minimal assistance to mDNS/IoT devices to get bootstrapped and then on with whatever other evil protocol(s) they use.
+
+### SSDP too
+
+mDNS alone isn't always enough. The Sonos Android app also sends an SSDP (UPnP) `M-SEARCH`, and won't connect to the
+speakers it found over mDNS until one of them answers it. Sonos speakers ignore searches from other subnets, so that
+answer never arrives.
+
+`mdns-filoxy` handles this too, in the same one-way spirit: every couple of minutes it sends an `M-SEARCH` on the source
+interface and caches the speakers' replies. When a matching search arrives on the destination interface, it answers
+with the cached replies. The app then talks to the speakers directly.
+
+This is on by default. Turn it off with `--no-ssdp`, or proxy other search targets with `--ssdp-search-target`
+(repeatable; default `urn:schemas-upnp-org:device:ZonePlayer:1`). It needs an IPv4 address on both interfaces, and UDP
+port 1900 must be free (or shareable with `SO_REUSEPORT`) on the host.
 
 ### What's with the name?!
 

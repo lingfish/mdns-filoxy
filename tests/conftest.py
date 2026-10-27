@@ -12,6 +12,7 @@ import mdns_filoxy.main as main_module
 from tests.helpers import (
     CliHarness,
     FakeServiceBrowser,
+    FakeSsdpProxy,
     FakeZeroconf,
     SleepStopper,
 )
@@ -56,7 +57,19 @@ def cli_harness(monkeypatch: pytest.MonkeyPatch) -> CliHarness:
         harness.browsers.append(browser)
         return browser
 
+    def make_ssdp_proxy(
+        source_interface: str, dest_interface: str, search_targets: tuple[str, ...]
+    ) -> FakeSsdpProxy | None:
+        harness.ssdp_requests.append((source_interface, dest_interface, tuple(search_targets)))
+        if not harness.ssdp_available:
+            return None
+        proxy = FakeSsdpProxy(source_interface, dest_interface, tuple(search_targets))
+        harness.ssdp_proxies.append(proxy)
+        return proxy
+
     monkeypatch.setattr(main_module, 'find_address_by_name', fake_find_address)
+    # The real one resolves interfaces and starts threads binding UDP port 1900.
+    monkeypatch.setattr(main_module, 'make_ssdp_proxy', make_ssdp_proxy)
     monkeypatch.setattr(main_module, 'Zeroconf', make_zeroconf)
     monkeypatch.setattr(main_module, 'ServiceBrowser', make_browser)
     # ``main`` only reaches for ``asyncio.sleep``; swap the module for a minimal stub

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import ipaddress
 from functools import wraps
 
 import ifaddr
@@ -21,6 +22,17 @@ def find_address_by_name(name: str) -> list[str]:
         if adapter.name == name:
             ips += get_all_addresses_ipv4([adapter]) + get_all_addresses_ipv6([adapter])
     return ips
+
+
+def find_ipv4_interfaces_by_name(name: str) -> list[ipaddress.IPv4Interface]:
+    """Return the IPv4 addresses, with their networks, of the interface called ``name``"""
+    return [
+        ipaddress.IPv4Interface(f'{ip.ip}/{ip.network_prefix}')
+        for adapter in ifaddr.get_adapters()
+        if adapter.name == name
+        for ip in adapter.ips
+        if ip.is_IPv4 and isinstance(ip.ip, str)
+    ]
 
 
 def coro(f):

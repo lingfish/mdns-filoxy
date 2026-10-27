@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ipaddress
 from collections.abc import Callable
 
 from mdns_filoxy import utils
@@ -105,3 +106,28 @@ def test_coro_turns_coroutine_function_into_sync_callable() -> None:
     wrapped: Callable[[], str] = utils.coro(body)
 
     assert wrapped() == 'ok'
+
+
+def test_find_ipv4_interfaces_by_name_keeps_prefix_and_skips_ipv6(monkeypatch) -> None:
+    adapter = make_adapter('eth0', [make_ip('10.0.0.1', 16), make_ip(('fe80::1', 0, 3), 64)])
+    monkeypatch.setattr(utils.ifaddr, 'get_adapters', lambda: [adapter])
+
+    interfaces = utils.find_ipv4_interfaces_by_name('eth0')
+
+    assert interfaces == [ipaddress.IPv4Interface('10.0.0.1/16')]
+    assert interfaces[0].network == ipaddress.IPv4Network('10.0.0.0/16')
+
+
+def test_find_ipv4_interfaces_by_name_filters_by_adapter_name(monkeypatch) -> None:
+    adapters = [
+        make_adapter('eth0', [make_ip('10.0.0.1')]),
+        make_adapter('eth1', [make_ip('192.168.1.1')]),
+        make_adapter('eth0', [make_ip('10.0.1.1', 28)]),
+    ]
+    monkeypatch.setattr(utils.ifaddr, 'get_adapters', lambda: adapters)
+
+    assert utils.find_ipv4_interfaces_by_name('eth0') == [
+        ipaddress.IPv4Interface('10.0.0.1/24'),
+        ipaddress.IPv4Interface('10.0.1.1/28'),
+    ]
+    assert utils.find_ipv4_interfaces_by_name('wlan0') == []

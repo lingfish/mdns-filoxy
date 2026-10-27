@@ -11,7 +11,8 @@ from loguru import logger
 from zeroconf import ServiceBrowser, ServiceInfo, ServiceListener, Zeroconf
 
 from mdns_filoxy._version import __version__
-from mdns_filoxy.utils import coro, find_address_by_name
+from mdns_filoxy.ssdp import ZONE_PLAYER, SsdpProxy
+from mdns_filoxy.utils import coro, find_address_by_name, find_ipv4_interfaces_by_name
 
 logger.remove()
 logger.add(sys.stderr, backtrace=True, diagnose=True)
@@ -196,9 +197,26 @@ class MyListener(ServiceListener):
     default=True,
     help='Add the suitable Spotify connect mDNS entry',
 )
+@click.option(
+    '--ssdp/--no-ssdp',
+    default=True,
+    help='Also answer SSDP (UPnP) searches on the destination interface with replies from source devices',
+)
+@click.option(
+    '--ssdp-search-target',
+    multiple=True,
+    default=[ZONE_PLAYER],
+    show_default=True,
+    help='The SSDP search targets (ST) to proxy',
+)
 @coro
 async def main(
-    source_interface: str, dest_interface: str, mdns_services: tuple[str, ...], spotify_connect: bool
+    source_interface: str,
+    dest_interface: str,
+    mdns_services: tuple[str, ...],
+    spotify_connect: bool,
+    ssdp: bool,
+    ssdp_search_target: tuple[str, ...],
 ) -> None:
     """This is mdns-filoxy, the mDNS filter proxy!"""
 
@@ -220,13 +238,36 @@ async def main(
         listener = MyListener(registry)
         browsers.append(ServiceBrowser(zeroconf_source, service, listener))
 
+    ssdp_proxy = make_ssdp_proxy(source_interface, dest_interface, ssdp_search_target) if ssdp else None
+    if ssdp_proxy is not None:
+        ssdp_proxy.start()
+
     try:
         while True:
             await asyncio.sleep(1)
     finally:
         logger.info('Shutdown')
+        if ssdp_proxy is not None:
+            ssdp_proxy.close()
         zeroconf_dest.close()
         zeroconf_source.close()
+
+
+def make_ssdp_proxy(source_interface: str, dest_interface: str, search_targets: tuple[str, ...]) -> SsdpProxy | None:
+    """Build the SSDP proxy, or return ``None`` (with a warning) if an interface has no IPv4 address."""
+    source = find_ipv4_interfaces_by_name(source_interface)
+    dest = find_ipv4_interfaces_by_name(dest_interface)
+    if not source or not dest:
+        missing = source_interface if not source else dest_interface
+        logger.warning(f'SSDP disabled: {missing} has no IPv4 address')
+        return None
+    logger.info(f'SSDP: proxying {list(search_targets)} from {source_interface} to {dest_interface}')
+    return SsdpProxy(
+        source_ip=str(source[0].ip),
+        dest_ip=str(dest[0].ip),
+        source_networks=[interface.network for interface in source],
+        search_targets=search_targets,
+    )
 
 
 def entry_point() -> None:

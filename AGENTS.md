@@ -28,6 +28,10 @@ finishing.
   `ProxyRegistry` breaks that echo loop: `add()` is a no-op for equivalent info, and `remove()` ignores removals
   inside an echo window that starts after the blocking `register_service`/`unregister_service` returns. Keep both
   guards.
+- `ssdp.py` answers SSDP `M-SEARCH`es on the dest interface with replies cached from the source interface (issue #3:
+  the Sonos Android app needs an SSDP answer, and speakers ignore off-subnet searches). `SsdpProxy` runs two daemon
+  threads; keep the per-iteration `try/except` guards. Sockets come from an injectable `socket_factory` so tests use
+  fakes, and `cli_harness` replaces `make_ssdp_proxy`: tests must never bind UDP 1900.
 - `get_service_info()` can return `None` (timeout); guard it before registering.
 - A single `ProxyRegistry` is shared by all listeners; its lock is intentional (callbacks run on multiple threads).
 

@@ -97,6 +97,23 @@ class FakeServiceBrowser:
         self.listener = listener
 
 
+class FakeSsdpProxy:
+    """Stands in for what ``make_ssdp_proxy`` builds; records its arguments and lifecycle."""
+
+    def __init__(self, source_interface: str, dest_interface: str, search_targets: tuple[str, ...]) -> None:
+        self.source_interface = source_interface
+        self.dest_interface = dest_interface
+        self.search_targets = search_targets
+        self.started = False
+        self.closed = False
+
+    def start(self) -> None:
+        self.started = True
+
+    def close(self) -> None:
+        self.closed = True
+
+
 class LoopStopped(Exception):
     """Sentinel raised by the fake ``asyncio.sleep`` to break the CLI's infinite loop."""
 
@@ -121,6 +138,11 @@ class CliHarness:
     addresses: dict[str, list[str]] = field(default_factory=dict)
     zeroconf_instances: list[FakeZeroconf] = field(default_factory=list)
     browsers: list[FakeServiceBrowser] = field(default_factory=list)
+    #: Every ``make_ssdp_proxy(source, dest, targets)`` call, including ones that returned ``None``.
+    ssdp_requests: list[tuple[str, str, tuple[str, ...]]] = field(default_factory=list)
+    ssdp_proxies: list[FakeSsdpProxy] = field(default_factory=list)
+    #: Set to ``False`` to make ``make_ssdp_proxy`` return ``None`` (interface without IPv4).
+    ssdp_available: bool = True
 
     @property
     def browsed_services(self) -> list[str]:
